@@ -53,6 +53,7 @@ def execute_scraper(url, mode):
     if not url.startswith(("http://", "https://")):
         url = "https://" + url
 
+    # Calls the main function inside your urls.py file natively
     result = asyncio.run(run_scraper(url, mode))
     
     print("\n" + "="*40)
@@ -89,10 +90,16 @@ if __name__ == "__main__":
             print("3. Hyperlink Infrastructure (URLs Map)")
             print("4. Graphical Content Strings (Image Asset Links)")
             print("5. Plain Text Stream (Paragraph Extractions)")
+            print("6. Universal Product Schema (E-Commerce Pricing/SKU JSON-LD)")
+            print("7. █▓▒░ ENGINE MASTER DASHBOARD (Run All Scrapers Together) ░▒▓█")
             
-            mode_selection = input("\nSelect Data Protocol (1-5): ").strip()
+            mode_selection = input("\nSelect Data Protocol (1-7): ").strip()
             
-            if mode_selection in ["1", "2", "3", "4", "5"]:
+            # Translate User Option 7 into string code "all" for urls.py engine routing
+            if mode_selection == "7":
+                mode_selection = "all"
+            
+            if mode_selection in ["1", "2", "3", "4", "5", "6", "all"]:
                 clear_screen()
                 execute_scraper(url_input, mode_selection)
                 input("\n[ SYSTEM ] Cycle Complete. Press ENTER to return to Main Menu...")
@@ -110,7 +117,7 @@ if __name__ == "__main__":
             # Auto-create pipeline queue file if it doesn't exist
             if not os.path.exists(filename):
                 with open(filename, "w", encoding="utf-8") as f:
-                    f.write("https://example.com\nhttps://httpbin.org\n")
+                    f.write("https://example.com\nhttps://apple.com\n")
                 print(f"[ ! ] Pipeline text file '{filename}' was missing.")
                 print("      A template has been generated. Paste your target URLs line-by-line inside it.")
                 input("\nPress ENTER to return to menu...")
@@ -122,17 +129,20 @@ if __name__ == "__main__":
                 urls_queue = [line.strip() for line in f if line.strip()]
                 
             if not urls_queue:
-                print(f"[ ! ] Matrix queue empty. Populated entries inside '{filename}' first.")
+                print(f"[ ! ] Matrix queue empty. Enter URL's inside '{filename}' first.")
                 input("\nPress ENTER to return...")
                 clear_screen()
                 continue
                 
             print(f"[ SYSTEM ] {len(urls_queue)} destination nodes mapped in current matrix array stream.")
             print("\nSelect Global Extraction Protocol for batch array execution:")
-            print("1. Metadata | 2. Tables | 3. Links | 4. Images | 5. Plain Text")
-            mode_selection = input("\nSelect Protocol (1-5): ").strip()
+            print("1. Metadata | 2. Tables | 3. Links | 4. Images | 5. Plain Text | 6. E-Com Schema | 7. Master Dashboard")
+            mode_selection = input("\nSelect Protocol (1-7): ").strip()
             
-            if mode_selection not in ["1", "2", "3", "4", "5"]:
+            if mode_selection == "7":
+                mode_selection = "all"
+            
+            if mode_selection not in ["1", "2", "3", "4", "5", "6", "all"]:
                 print("\n[ ! ] Invalid Matrix Protocol Selection. Aborting pipeline...")
                 time.sleep(1.2)
                 clear_screen()
@@ -148,7 +158,7 @@ if __name__ == "__main__":
                 
                 # Execute node scraping step natively
                 execute_scraper(batch_url, mode_selection)
-                time.sleep(1.0)  # Safe buffer break cooling period between targets
+                time.sleep(1.5)  # Cooling delay buffer to mimic human intervals across batch runs
                 
             print("\n" + "="*50)
             print("[ SYSTEM GLOBAL ] Global Batch Execution Frame Chain Finalized.")
@@ -166,3 +176,4 @@ if __name__ == "__main__":
             print("\n[ ! ] Invalid Selection... Resetting layout configuration...")
             time.sleep(1.2)
             clear_screen()
+            
