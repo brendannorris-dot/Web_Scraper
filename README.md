@@ -1,3 +1,4 @@
+--current_knowledge--
 This is a simple project of mine as I'm college using what I learn, I will keep updating this with new ideas and just simply fixing parts of the program as I see fit.
 
 In order to run this program run @testing.py.
