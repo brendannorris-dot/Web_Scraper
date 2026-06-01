@@ -1,0 +1,526 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-widthh1>MarketScraper Pro</h1>  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <p class="hero-copy">
+          Extract useful public website data into clean JSON, CSV, and Markdown.
+          Built with responsible scraping defaults, human-style pacing, crawl controls,
+          retries, and export-ready results.
+        </p>
+      </div>
+
+      <div class="status-card">
+        <span class="status-dot"></span>
+        <div>
+          <strong>Safe human mode enabled</strong>
+          <p>Randomized pacing, retry backoff, robots.txt respect, and conservative limits.</p>
+        </div>
+      </div>
+    </section>
+
+    <section class="panel">
+      <div class="grid two-column">
+        <label>
+          Website URL
+          <input id="urlInput" type="url" placeholder="https://example.com" />
+        </label>
+
+        <label>
+          Mode
+          <select id="modeInput">
+            <option value="single">Single Page</option>
+            <option value="crawl">Same-Domain Crawl</option>
+          </select>
+        </label>
+      </div>
+
+      <div class="advanced-grid">
+        <label>
+          Max Pages
+          <input id="maxPagesInput" type="number" min="1" max="50" value="10" />
+        </label>
+
+        <label>
+          Max Depth
+          <input id="maxDepthInput" type="number" min="0" max="3" value="1" />
+        </label>
+
+        <label>
+          Timeout Seconds
+          <input id="timeoutInput" type="number" min="3" max="60" value="15" />
+        </label>
+
+        <label>
+          Retries
+          <input id="retriesInput" type="number" min="1" max="5" value="3" />
+        </label>
+      </div>
+
+      <div class="human-panel">
+        <div class="human-panel-header">
+          <div>
+            <h2>Human Behavior Pacing</h2>
+            <p>
+              Adds safe randomized pauses and longer breaks during crawling.
+              This improves politeness and reliability without bypassing protections.
+            </p>
+          </div>
+
+          <label class="toggle-label">
+            <input id="humanModeInput" type="checkbox" checked />
+            Human Mode
+          </label>
+        </div>
+
+        <div class="advanced-grid">
+          <label>
+            Min Delay
+            <input id="minDelayInput" type="number" min="0.25" max="15" step="0.25" value="1" />
+          </label>
+
+          <label>
+            Max Delay
+            <input id="maxDelayInput" type="number" min="0.25" max="15" step="0.25" value="3" />
+          </label>
+
+          <label>
+            Long Pause Every
+            <input id="longPauseEveryInput" type="number" min="0" max="25" value="6" />
+          </label>
+
+          <label>
+            Long Pause Range
+            <div class="split-input">
+              <input id="longPauseMinInput" type="number" min="0" max="15" step="0.25" value="4" />
+              <input id="longPauseMaxInput" type="number" min="0" max="15" step="0.25" value="8" />
+            </div>
+          </label>
+        </div>
+      </div>
+
+      <div class="options-row">
+        <label class="checkbox-label">
+          <input id="respectRobotsInput" type="checkbox" checked />
+          Respect robots.txt
+        </label>
+
+        <label class="grow">
+          User Agent
+          <input id="userAgentInput" type="text" value="MarketScraperPro/1.1 (+respectful-public-web-scraper)" />
+        </label>
+      </div>
+
+      <div class="actions">
+        <button id="scrapeButton" class="primary-button">Start Scraping</button>
+        <button id="clearButton" class="secondary-button">Clear</button>
+      </div>
+    </section>
+
+    <section id="messageBox" class="message-box hidden"></section>
+
+    <section class="metrics-row">
+      <article class="metric-card">
+        <span id="pagesScrapedMetric">0</span>
+        <p>Pages Scraped</p>
+      </article>
+
+      <article class="metric-card">
+        <span id="linksFoundMetric">0</span>
+        <p>Links Found</p>
+      </article>
+
+      <article class="metric-card">
+        <span id="imagesFoundMetric">0</span>
+        <p>Images Found</p>
+      </article>
+
+      <article class="metric-card">
+        <span id="tablesFoundMetric">0</span>
+        <p>Tables Found</p>
+      </article>
+    </section>
+
+    <section class="panel results-panel">
+      <div class="section-heading">
+        <div>
+          <h2>Results</h2>
+          <p>Review extracted content, then export it for your workflow.</p>
+        </div>
+
+        <div class="export-actions">
+          <button id="exportJsonButton" class="secondary-button" disabled>Export JSON</button>
+          <button id="exportCsvButton" class="secondary-button" disabled>Export CSV</button>
+          <button id="exportMarkdownButton" class="secondary-button" disabled>Export Markdown</button>
+        </div>
+      </div>
+
+      <div id="resultsContainer" class="results-container empty">
+        No scrape results yet.
+      </div>
+    </section>
+  </main>
+
+  <script>
+    const state = {
+      latestData: null,
+      isLoading: false
+    };
+
+    const elements = {
+      urlInput: document.getElementById("urlInput"),
+      modeInput: document.getElementById("modeInput"),
+      maxPagesInput: document.getElementById("maxPagesInput"),
+      maxDepthInput: document.getElementById("maxDepthInput"),
+      timeoutInput: document.getElementById("timeoutInput"),
+      retriesInput: document.getElementById("retriesInput"),
+      humanModeInput: document.getElementById("humanModeInput"),
+      minDelayInput: document.getElementById("minDelayInput"),
+      maxDelayInput: document.getElementById("maxDelayInput"),
+      longPauseEveryInput: document.getElementById("longPauseEveryInput"),
+      longPauseMinInput: document.getElementById("longPauseMinInput"),
+      longPauseMaxInput: document.getElementById("longPauseMaxInput"),
+      respectRobotsInput: document.getElementById("respectRobotsInput"),
+      userAgentInput: document.getElementById("userAgentInput"),
+      scrapeButton: document.getElementById("scrapeButton"),
+      clearButton: document.getElementById("clearButton"),
+      messageBox: document.getElementById("messageBox"),
+      resultsContainer: document.getElementById("resultsContainer"),
+      pagesScrapedMetric: document.getElementById("pagesScrapedMetric"),
+      linksFoundMetric: document.getElementById("linksFoundMetric"),
+      imagesFoundMetric: document.getElementById("imagesFoundMetric"),
+      tablesFoundMetric: document.getElementById("tablesFoundMetric"),
+      exportJsonButton: document.getElementById("exportJsonButton"),
+      exportCsvButton: document.getElementById("exportCsvButton"),
+      exportMarkdownButton: document.getElementById("exportMarkdownButton")
+    };
+
+    function setLoading(isLoading) {
+      state.isLoading = isLoading;
+      elements.scrapeButton.disabled = isLoading;
+      elements.scrapeButton.textContent = isLoading ? "Scraping..." : "Start Scraping";
+    }
+
+    function showMessage(message, type = "info") {
+      elements.messageBox.className = `message-box ${type}`;
+      elements.messageBox.textContent = message;
+    }
+
+    function hideMessage() {
+      elements.messageBox.className = "message-box hidden";
+      elements.messageBox.textContent = "";
+    }
+
+    function numberValue(input, fallback) {
+      const value = Number(input.value);
+      return Number.isNaN(value) ? fallback : value;
+    }
+
+    function getPayload() {
+      return {
+        url: elements.urlInput.value.trim(),
+        mode: elements.modeInput.value,
+        max_pages: numberValue(elements.maxPagesInput, 10),
+        max_depth: numberValue(elements.maxDepthInput, 1),
+        timeout: numberValue(elements.timeoutInput, 15),
+        retries: numberValue(elements.retriesInput, 3),
+        human_mode: elements.humanModeInput.checked,
+        min_delay: numberValue(elements.minDelayInput, 1),
+        max_delay: numberValue(elements.maxDelayInput, 3),
+        long_pause_every: numberValue(elements.longPauseEveryInput, 6),
+        long_pause_min: numberValue(elements.longPauseMinInput, 4),
+        long_pause_max: numberValue(elements.longPauseMaxInput, 8),
+        respect_robots: elements.respectRobotsInput.checked,
+        user_agent: elements.userAgentInput.value.trim()
+      };
+    }
+
+    function escapeHtml(value) {
+      return String(value || "")
+        .replaceAll("&", "&amp;")
+        .replaceAll("<", "&lt;")
+        .replaceAll(">", "&gt;")
+        .replaceAll('"', "&quot;")
+        .replaceAll("'", "&#039;");
+    }
+
+    function calculateTotals(data) {
+      const pages = data && data.results ? data.results : [];
+
+      return pages.reduce((totals, page) => {
+        totals.links += page.links ? page.links.length : 0;
+        totals.images += page.images ? page.images.length : 0;
+        totals.tables += page.tables ? page.tables.length : 0;
+        return totals;
+      }, {
+        links: 0,
+        images: 0,
+        tables: 0
+      });
+    }
+
+    function updateMetrics(data) {
+      const totals = calculateTotals(data);
+
+      elements.pagesScrapedMetric.textContent = data && data.pages_scraped ? data.pages_scraped : 0;
+      elements.linksFoundMetric.textContent = totals.links;
+      elements.imagesFoundMetric.textContent = totals.images;
+      elements.tablesFoundMetric.textContent = totals.tables;
+    }
+
+    function setExportButtons(enabled) {
+      elements.exportJsonButton.disabled = !enabled;
+      elements.exportCsvButton.disabled = !enabled;
+      elements.exportMarkdownButton.disabled = !enabled;
+    }
+
+    function renderResults(data) {
+      const pages = data && data.results ? data.results : [];
+      const errors = data && data.errors ? data.errors : [];
+
+      if (!pages.length && !errors.length) {
+        elements.resultsContainer.className = "results-container empty";
+        elements.resultsContainer.textContent = "No results were returned.";
+        return;
+      }
+
+      elements.resultsContainer.className = "results-container";
+
+      const pageHtml = pages.map((page, index) => {
+        const h1List = page.headings && page.headings.h1 ? page.headings.h1 : [];
+        const h2List = page.headings && page.headings.h2 ? page.headings.h2 : [];
+        const links = page.links || [];
+        const images = page.images || [];
+        const tables = page.tables || [];
+        const emails = page.emails || [];
+        const phones = page.phone_like_values || [];
+
+        return `
+          <article class="result-card">
+            <div class="result-header">
+              <div>
+                <p class="result-index">Page ${index + 1}</p>
+                <h3>${escapeHtml(page.title || "Untitled Page")}</h3>
+                <a href="${escapeHtml(page.url)}" target="_blank" rel="noopener noreferrer">
+                  ${escapeHtml(page.url)}
+                </a>
+              </div>
+
+              <span class="badge">${escapeHtml(page.status_code || "OK")}</span>
+            </div>
+
+            <div class="mini-grid">
+              <div><strong>${page.word_count || 0}</strong><span>Words</span></div>
+              <div><strong>${links.length}</strong><span>Links</span></div>
+              <div><strong>${images.length}</strong><span>Images</span></div>
+              <div><strong>${tables.length}</strong><span>Tables</span></div>
+            </div>
+
+            ${page.meta_description ? `
+              <section class="result-section">
+                <h4>Description</h4>
+                <p>${escapeHtml(page.meta_description)}</p>
+              </section>
+            ` : ""}
+
+            ${h1List.length ? `
+              <section class="result-section">
+                <h4>H1 Headings</h4>
+                <ul>
+                  ${h1List.slice(0, 10).map(item => `<li>${escapeHtml(item)}</li>`).join("")}
+                </ul>
+              </section>
+            ` : ""}
+
+            ${h2List.length ? `
+              <section class="result-section">
+                <h4>H2 Headings</h4>
+                <ul>
+                  ${h2List.slice(0, 12).map(item => `<li>${escapeHtml(item)}</li>`).join("")}
+                </ul>
+              </section>
+            ` : ""}
+
+            ${emails.length || phones.length ? `
+              <section class="result-section">
+                <h4>Contact-Like Data</h4>
+                ${emails.length ? `<p><strong>Emails:</strong> ${emails.map(escapeHtml).join(", ")}</p>` : ""}
+                ${phones.length ? `<p><strong>Phone-like values:</strong> ${phones.map(escapeHtml).join(", ")}</p>` : ""}
+              </section>
+            ` : ""}
+
+            ${page.text_preview ? `
+              <section class="result-section">
+                <h4>Text Preview</h4>
+                <p>${escapeHtml(page.text_preview)}</p>
+              </section>
+            ` : ""}
+
+            <details>
+              <summary>View extracted link sample</summary>
+              <ul>
+                ${links.slice(0, 25).map(link => `
+                  <li>
+                    <a href="${escapeHtml(link.url)}" target="_blank" rel="noopener noreferrer">
+                      ${escapeHtml(link.text || link.url)}
+                    </a>
+                    ${link.internal ? `<span class="tiny-badge">internal</span>` : `<span class="tiny-badge external">external</span>`}
+                  </li>
+                `).join("")}
+              </ul>
+            </details>
+          </article>
+        `;
+      }).join("");
+
+      const errorHtml = errors.length ? `
+        <article class="result-card error-card">
+          <h3>Errors</h3>
+          <ul>
+            ${errors.map(error => `
+              <li><strong>${escapeHtml(error.url)}</strong>: ${escapeHtml(error.error)}</li>
+            `).join("")}
+          </ul>
+        </article>
+      ` : "";
+
+      elements.resultsContainer.innerHTML = pageHtml + errorHtml;
+    }
+
+    async function startScrape() {
+      const payload = getPayload();
+
+      if (!payload.url) {
+        showMessage("Enter a website URL first.", "error");
+        return;
+      }
+
+      if (payload.max_delay < payload.min_delay) {
+        showMessage("Max Delay must be greater than or equal to Min Delay.", "error");
+        return;
+      }
+
+      if (payload.long_pause_max < payload.long_pause_min) {
+        showMessage("Long Pause max must be greater than or equal to Long Pause min.", "error");
+        return;
+      }
+
+      hideMessage();
+      setLoading(true);
+      setExportButtons(false);
+
+      try {
+        const response = await fetch("/api/scrape", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify(payload)
+        });
+
+        const result = await response.json();
+
+        if (!result.ok) {
+          throw new Error(result.error || "Scrape failed.");
+        }
+
+        state.latestData = result.data;
+
+        updateMetrics(result.data);
+        renderResults(result.data);
+        setExportButtons(true);
+
+        showMessage("Scrape completed successfully.", "success");
+      } catch (error) {
+        showMessage(error.message || "Something went wrong.", "error");
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    function clearAll() {
+      state.latestData = null;
+      elements.urlInput.value = "";
+      elements.resultsContainer.className = "results-container empty";
+      elements.resultsContainer.textContent = "No scrape results yet.";
+
+      updateMetrics({
+        pages_scraped: 0,
+        results: []
+      });
+
+      setExportButtons(false);
+      hideMessage();
+    }
+
+    async function exportData(format) {
+      if (!state.latestData) {
+        showMessage("Run a scrape before exporting.", "error");
+        return;
+      }
+
+      const endpointMap = {
+        json: "/api/export/json",
+        csv: "/api/export/csv",
+        markdown: "/api/export/markdown"
+      };
+
+      const filenameMap = {
+        json: "scrape-export.json",
+        csv: "scrape-export.csv",
+        markdown: "scrape-export.md"
+      };
+
+      try {
+        const response = await fetch(endpointMap[format], {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({
+            data: state.latestData
+          })
+        });
+
+        if (!response.ok) {
+          throw new Error("Export failed.");
+        }
+
+        const blob = await response.blob();
+        const downloadUrl = URL.createObjectURL(blob);
+
+        const anchor = document.createElement("a");
+        anchor.href = downloadUrl;
+        anchor.download = filenameMap[format];
+        document.body.appendChild(anchor);
+        anchor.click();
+        anchor.remove();
+
+        URL.revokeObjectURL(downloadUrl);
+      } catch (error) {
+        showMessage(error.message || "Export failed.", "error");
+      }
+    }
+
+    elements.scrapeButton.addEventListener("click", startScrape);
+    elements.clearButton.addEventListener("click", clearAll);
+    elements.exportJsonButton.addEventListener("click", () => exportData("json"));
+    elements.exportCsvButton.addEventListener("click", () => exportData("csv"));
+    elements.exportMarkdownButton.addEventListener("click", () => exportData("markdown"));
+
+    elements.urlInput.addEventListener("keydown", event => {
+      if (event.key === "Enter") {
+        startScrape();
+      }
+    });
+  </script>
+</body>
+</html>
+  <title>{{ app_name }}</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}" />
+</head>
+<body>
+  <main class="app-shell">
+    <section class="hero">
+      <div>
+        <p class="eyebrow">Public Web Extraction Suite</p>
