@@ -510,6 +510,166 @@ def crawl_site(start_url: str, options: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def iter_scrape(url: str, mode: str, options: dict[str, Any]):
+    """Generator that yields SSE-compatible dicts for streaming scrape progress."""
+    import json as _json
+
+    if mode == "crawl":
+        normalized_start_url = normalize_url(url)
+
+        if not normalized_start_url:
+            yield {"event": "log", "message": "Invalid start URL."}
+            return
+
+        max_pages = clamp_int(options.get("max_pages"), 10, 1, MAX_HARD_LIMIT_PAGES)
+        max_depth = clamp_int(options.get("max_depth"), 1, 0, MAX_HARD_LIMIT_DEPTH)
+        user_agent = str(options.get("user_agent") or DEFAULT_USER_AGENT)
+        respect_robots = bool(options.get("respect_robots", True))
+
+        yield {"event": "log", "message": f"Starting crawl of {normalized_start_url} (max_pages={max_pages}, max_depth={max_depth})"}
+
+        queue: deque[tuple[str, int]] = deque([(normalized_start_url, 0)])
+        visited: set[str] = set()
+        results: list[dict[str, Any]] = []
+        errors: list[dict[str, str]] = []
+
+        while queue and len(results) < max_pages:
+            current_url, depth = queue.popleft()
+
+            if current_url in visited:
+                continue
+
+            visited.add(current_url)
+            page_num = len(results) + 1
+
+            yield {"event": "page_start", "url": current_url, "page_num": page_num}
+
+            try:
+                if respect_robots and not can_fetch_url(current_url, user_agent):
+                    err = "Blocked by robots.txt"
+                    errors.append({"url": current_url, "error": err})
+                    yield {"event": "page_error", "url": current_url, "error": err}
+                    continue
+
+                if page_num > 1:
+                    human_pause(options, page_number=page_num)
+
+                data = scrape_single_page(current_url, options)
+                results.append(data)
+
+                yield {
+                    "event": "page_done",
+                    "url": current_url,
+                    "page_num": page_num,
+                    "title": data.get("title", ""),
+                    "word_count": data.get("word_count", 0)
+                }
+
+                if depth < max_depth:
+                    for link in data.get("links", []):
+                        next_url = normalize_url(str(link.get("url", "")))
+                        if (
+                            next_url
+                            and next_url not in visited
+                            and is_same_domain(normalized_start_url, next_url)
+                        ):
+                            queue.append((next_url, depth + 1))
+
+            except Exception as exc:
+                errors.append({"url": current_url, "error": str(exc)})
+                yield {"event": "page_error", "url": current_url, "error": str(exc)}
+
+        result = {
+            "start_url": normalized_start_url,
+            "pages_scraped": len(results),
+            "pages_attempted": len(visited),
+            "max_pages": max_pages,
+            "max_depth": max_depth,
+            "human_mode": bool(options.get("human_mode", True)),
+            "results": results,
+            "errors": errors
+        }
+
+        yield {"event": "log", "message": f"Crawl complete. {len(results)} page(s) scraped."}
+        yield {"event": "complete", "data": result}
+
+    else:
+        # single page mode
+        normalized_url = normalize_url(url)
+
+        if not normalized_url:
+            yield {"event": "log", "message": "Invalid URL."}
+            return
+
+        yield {"event": "log", "message": f"Scraping single page: {normalized_url}"}
+        yield {"event": "page_start", "url": normalized_url, "page_num": 1}
+
+        try:
+            page = scrape_single_page(normalized_url, options)
+
+            yield {
+                "event": "page_done",
+                "url": normalized_url,
+                "page_num": 1,
+                "title": page.get("title", ""),
+                "word_count": page.get("word_count", 0)
+            }
+
+            result = {
+                "start_url": normalized_url,
+                "pages_scraped": 1,
+                "pages_attempted": 1,
+                "max_pages": 1,
+                "max_depth": 0,
+                "human_mode": bool(options.get("human_mode", True)),
+                "results": [page],
+                "errors": []
+            }
+
+            yield {"event": "log", "message": "Scrape complete. 1 page scraped."}
+            yield {"event": "complete", "data": result}
+
+        except Exception as exc:
+            yield {"event": "page_error", "url": normalized_url, "error": str(exc)}
+
+
+@app.route("/api/scrape/stream", methods=["POST"])
+def api_scrape_stream():
+    payload = request.get_json(force=True)
+
+    url = payload.get("url", "")
+    mode = payload.get("mode", "single")
+
+    options = {
+        "max_pages": payload.get("max_pages", 10),
+        "max_depth": payload.get("max_depth", 1),
+        "delay": payload.get("delay", 1),
+        "min_delay": payload.get("min_delay", DEFAULT_MIN_DELAY),
+        "max_delay": payload.get("max_delay", DEFAULT_MAX_DELAY),
+        "long_pause_every": payload.get("long_pause_every", 6),
+        "long_pause_min": payload.get("long_pause_min", 4),
+        "long_pause_max": payload.get("long_pause_max", 8),
+        "timeout": payload.get("timeout", DEFAULT_TIMEOUT),
+        "retries": payload.get("retries", MAX_RETRIES),
+        "user_agent": payload.get("user_agent", DEFAULT_USER_AGENT),
+        "respect_robots": payload.get("respect_robots", True),
+        "human_mode": payload.get("human_mode", True),
+    }
+
+    def generate():
+        try:
+            for event_dict in iter_scrape(url, mode, options):
+                yield f"data: {json.dumps(event_dict)}\n\n"
+        except Exception as exc:
+            error_dict = {"event": "page_error", "url": url, "error": str(exc)}
+            yield f"data: {json.dumps(error_dict)}\n\n"
+
+    response = Response(generate(), mimetype="text/event-stream")
+    response.headers["Cache-Control"] = "no-cache"
+    response.headers["X-Accel-Buffering"] = "no"
+    return response
+
+
 def flatten_for_csv(crawl_result: dict[str, Any]) -> list[dict[str, Any]]:
     rows: list[dict[str, Any]] = []
 

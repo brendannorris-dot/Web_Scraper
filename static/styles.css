@@ -535,3 +535,98 @@ details li {
     grid-template-columns: 1fr;
   }
 }
+/* Terminal panel */
+.terminal-panel {
+  margin: 18px 0;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  overflow: hidden;
+  box-shadow: var(--shadow);
+}
+
+.terminal-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 16px;
+  background: #1a1f2e;
+  border-bottom: 1px solid rgba(148, 163, 184, 0.15);
+}
+
+.terminal-dots {
+  display: flex;
+  gap: 7px;
+  align-items: center;
+}
+
+.terminal-dots span {
+  display: inline-block;
+  width: 13px;
+  height: 13px;
+  border-radius: 50%;
+}
+
+.terminal-title {
+  flex: 1;
+  text-align: center;
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: var(--muted);
+  letter-spacing: 0.05em;
+}
+
+.terminal-clear-btn {
+  background: transparent;
+  border: 1px solid rgba(148, 163, 184, 0.3);
+  border-radius: 8px;
+  color: var(--muted);
+  padding: 4px 10px;
+  font-size: 0.78rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.terminal-clear-btn:hover {
+  border-color: rgba(148, 163, 184, 0.6);
+  color: var(--text);
+}
+
+.terminal-body {
+  max-height: 320px;
+  overflow-y: auto;
+  background: #0a0f1a;
+  font-family: "Fira Mono", "Cascadia Code", "Consolas", ui-monospace, monospace;
+  font-size: 0.83rem;
+  line-height: 1.6;
+  padding: 12px 0;
+}
+
+.terminal-line {
+  padding: 1px 16px;
+  color: #94a3b8;
+  word-break: break-all;
+}
+
+.terminal-line.success {
+  color: #00ff88;
+}
+
+.terminal-line.start {
+  color: #fbbf24;
+}
+
+.terminal-line.error {
+  color: #f87171;
+}
+
+.terminal-line.muted {
+  color: #64748b;
+}
+
+.terminal-empty {
+  padding: 40px;
+  text-align: center;
+  color: #334155;
+  font-family: "Fira Mono", "Cascadia Code", "Consolas", ui-monospace, monospace;
+  font-size: 0.83rem;
+}
